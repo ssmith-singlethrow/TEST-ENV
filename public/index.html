@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Team Calendar</title>
+<style>
+  :root {
+    --ink: #111111;
+    --paper: #F5F3EE;
+    --card: #FFFFFF;
+    --accent: #2453FF;
+    --accent-ink: #FFFFFF;
+    --line: #111111;
+    --muted: #6B6B63;
+    --today: #FFD23F;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    min-height: 100vh;
+  }
+
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 28px 20px 80px;
+  }
+
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    border-bottom: 4px solid var(--line);
+    padding-bottom: 18px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+
+  h1 {
+    font-size: 34px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    margin: 0;
+    text-transform: uppercase;
+  }
+
+  .sync-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 2px solid var(--line);
+    background: var(--card);
+    padding: 8px 12px;
+    box-shadow: 3px 3px 0 var(--line);
+  }
+
+  .pulse-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2ECC71;
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+  }
+
+  .pulse-dot.stale { background: #E74C3C; animation: none; }
+
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.6); }
+    70% { box-shadow: 0 0 0 6px rgba(46,204,113,0); }
+    100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); }
+  }
+
+  .calendar-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .calendar-nav-title {
+    font-size: 20px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+  }
+
+  .calendar-nav-buttons { display: flex; gap: 8px; }
+
+  .nav-btn {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 14px;
+    border: 2px solid var(--line);
+    background: var(--card);
+    padding: 6px 14px;
+    cursor: pointer;
+  }
+
+  .nav-btn:hover { background: var(--accent); color: var(--accent-ink); }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border: 2.5px solid var(--line);
+    background: var(--line);
+    gap: 2px;
+  }
+
+  .weekday-header {
+    background: var(--ink);
+    color: var(--accent-ink);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    text-align: center;
+    padding: 6px 0;
+  }
+
+  .day-cell {
+    background: var(--card);
+    min-height: 96px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .day-cell.outside-month { background: #ECE9E1; }
+  .day-cell.is-today { background: #FFF6D9; }
+
+  .day-number {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    color: var(--muted);
+    align-self: flex-end;
+  }
+
+  .day-cell.is-today .day-number {
+    background: var(--today);
+    border: 2px solid var(--line);
+    color: var(--ink);
+    padding: 0 6px;
+  }
+
+  .day-chip {
+    font-size: 10.5px;
+    line-height: 1.25;
+    background: var(--ink);
+    color: var(--accent-ink);
+    padding: 2px 5px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: default;
+  }
+
+  .day-chip-more {
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
+  @media (max-width: 640px) {
+    .day-cell { min-height: 64px; padding: 4px; }
+    .weekday-header { font-size: 9px; }
+    .day-chip { font-size: 9px; }
+  }
+
+  .day-popover {
+    position: fixed;
+    z-index: 10;
+    max-width: 280px;
+    background: var(--card);
+    border: 2.5px solid var(--line);
+    box-shadow: 5px 5px 0 var(--line);
+    padding: 12px 14px;
+  }
+
+  .day-popover-title {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+
+  .day-popover-item { margin-bottom: 8px; }
+  .day-popover-item:last-child { margin-bottom: 0; }
+
+  .day-popover-time {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .day-popover-close {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    cursor: pointer;
+    font-weight: 700;
+    font-family: 'Courier New', monospace;
+  }
+
+  .client-tag {
+    display: inline-block;
+    background: var(--ink);
+    color: var(--accent-ink);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    margin-right: 6px;
+  }
+
+  .meeting-type-tag {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+  }
+
+  .upcoming-type {
+    font-family: 'Courier New', monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: var(--accent);
+    color: var(--accent-ink);
+    padding: 1px 7px;
+    flex-shrink: 0;
+  }
+
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+
+  .filter-chip {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 2px solid var(--line);
+    background: var(--card);
+    padding: 6px 12px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .filter-chip.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .empty-state, .error-state {
+    border: 2.5px dashed var(--line);
+    padding: 40px 20px;
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    color: var(--muted);
+  }
+
+  .error-state { border-color: #E74C3C; color: #E74C3C; }
+
+  footer {
+    text-align: center;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 40px;
+  }
+
+  .upcoming-section {
+    margin-top: 40px;
+    border-top: 4px solid var(--line);
+    padding-top: 22px;
+  }
+
+  .upcoming-heading {
+    font-size: 20px;
+    font-weight: 900;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+  }
+
+  .upcoming-row {
+    display: grid;
+    grid-template-columns: 96px 100px 1fr;
+    gap: 12px;
+    align-items: center;
+    padding: 10px 14px;
+    background: var(--card);
+    border: 2px solid var(--line);
+    margin-bottom: 8px;
+  }
+
+  .upcoming-row:nth-child(1) { box-shadow: 4px 4px 0 var(--accent); border-color: var(--accent); }
+
+  .upcoming-date {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .upcoming-time {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .upcoming-info {
+    min-width: 0;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .upcoming-client {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    background: var(--ink);
+    color: var(--accent-ink);
+    padding: 1px 7px;
+    flex-shrink: 0;
+  }
+
+  .upcoming-title {
+    font-weight: 700;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 520px) {
+    .upcoming-row { grid-template-columns: 1fr; gap: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Team Calendar</h1>
+    <div class="sync-status" id="syncStatus">
+      <span class="pulse-dot" id="pulseDot"></span>
+      <span id="syncText">Connecting…</span>
+    </div>
+  </header>
+
+  <div class="filter-bar" id="filterBar"></div>
+
+  <div class="calendar-nav">
+    <div class="calendar-nav-title" id="calendarNavTitle"></div>
+    <div class="calendar-nav-buttons">
+      <div class="nav-btn" id="prevMonthBtn">‹ Prev</div>
+      <div class="nav-btn" id="todayBtn">Today</div>
+      <div class="nav-btn" id="nextMonthBtn">Next ›</div>
+    </div>
+  </div>
+
+  <div id="content">
+    <div class="empty-state">Loading events…</div>
+  </div>
+
+  <section class="upcoming-section">
+    <h2 class="upcoming-heading">Coming Up</h2>
+    <div id="upcomingList"></div>
+  </section>
+
+  <footer>Auto-refreshes every 5 minutes · Source: shared team Google Calendar</footer>
+</div>
+
+<script>
+  // Paste your Apps Script Web App deployment URL here.
+  const FEED_URL = 'https://script.google.com/a/macros/singlethrow.com/s/AKfycbyyE55CS_-LilQsft6vlS7mHwHcvYQNDt0sYM86xZcuqsMiXfkIfkp6DPY4SUgy3ks/exec';
+  const ACCESS_KEY = 'CHANGE-THIS-TO-A-RANDOM-STRING'; // must match ACCESS_KEY in the Apps Script
+  const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
+
+  const contentEl = document.getElementById('content');
+  const syncTextEl = document.getElementById('syncText');
+  const pulseDotEl = document.getElementById('pulseDot');
+  const filterBarEl = document.getElementById('filterBar');
+
+  let allEvents = [];
+  let activeClient = 'All';
+  let viewMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+
+  const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+  function formatTime(dateStr, allDay) {
+    if (allDay) return 'All day';
+    const d = new Date(dateStr);
+    return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
+
+  function groupByDateKey(events) {
+    const map = new Map();
+    events.forEach(ev => {
+      const key = new Date(ev.start).toDateString();
+      if (!map.has(key)) map.set(key, []);
+      map.get(key).push(ev);
+    });
+    return map;
+  }
+
+  function renderFilterBar() {
+    const clients = ['All', ...new Set(allEvents.map(ev => ev.client))].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
+    filterBarEl.innerHTML = clients.map(c =>
+      `<div class="filter-chip${c === activeClient ? ' active' : ''}" data-client="${escapeHtml(c)}">${escapeHtml(c)}</div>`
+    ).join('');
+
+    filterBarEl.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        activeClient = chip.dataset.client;
+        renderFilterBar();
+        renderCalendarGrid();
+      });
+    });
+  }
+
+  function renderUpcoming(events) {
+    const upcomingEl = document.getElementById('upcomingList');
+    const now = new Date();
+
+    const upcoming = events
+      .filter(ev => new Date(ev.end) >= now)
+      .sort((a, b) => new Date(a.start) - new Date(b.start))
+      .slice(0, 8);
+
+    if (!upcoming.length) {
+      upcomingEl.innerHTML = '<div class="empty-state">Nothing upcoming.</div>';
+      return;
+    }
+
+    upcomingEl.innerHTML = upcoming.map(ev => {
+      const d = new Date(ev.start);
+      const dateStr = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      return `
+        <div class="upcoming-row">
+          <div class="upcoming-date">${dateStr}</div>
+          <div class="upcoming-time">${formatTime(ev.start, ev.allDay)}</div>
+          <div class="upcoming-info">
+            <span class="upcoming-client">${escapeHtml(ev.client)}</span>
+            <span class="upcoming-type">${escapeHtml(ev.meetingType)}</span>
+            <span class="upcoming-title">${escapeHtml(ev.title)}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function closePopover() {
+    const existing = document.querySelector('.day-popover');
+    if (existing) existing.remove();
+  }
+
+  function showDayPopover(cellEl, dateObj, dayEvents) {
+    closePopover();
+    const pop = document.createElement('div');
+    pop.className = 'day-popover';
+    const dateLabel = dateObj.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' });
+    pop.innerHTML = `
+      <span class="day-popover-close">✕</span>
+      <div class="day-popover-title">${dateLabel}</div>
+      ${dayEvents.sort((a, b) => new Date(a.start) - new Date(b.start)).map(ev => `
+        <div class="day-popover-item">
+          <div class="day-popover-time">${formatTime(ev.start, ev.allDay)}</div>
+          <span class="client-tag" style="margin-top:4px;">${escapeHtml(ev.client)}</span>
+          <span class="meeting-type-tag">${escapeHtml(ev.meetingType)}</span>
+          <div>${escapeHtml(ev.title)}</div>
+        </div>
+      `).join('')}
+    `;
+    document.body.appendChild(pop);
+
+    const rect = cellEl.getBoundingClientRect();
+    const popRect = pop.getBoundingClientRect();
+    let left = rect.left;
+    let top = rect.bottom + 6;
+    if (left + popRect.width > window.innerWidth - 12) left = window.innerWidth - popRect.width - 12;
+    if (top + popRect.height > window.innerHeight - 12) top = rect.top - popRect.height - 6;
+    pop.style.left = left + 'px';
+    pop.style.top = top + 'px';
+
+    pop.querySelector('.day-popover-close').addEventListener('click', closePopover);
+  }
+
+  function renderCalendarNavTitle() {
+    document.getElementById('calendarNavTitle').textContent =
+      viewMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+  }
+
+  function renderCalendarGrid() {
+    closePopover();
+    renderCalendarNavTitle();
+
+    const events = activeClient === 'All' ? allEvents : allEvents.filter(ev => ev.client === activeClient);
+    const byDate = groupByDateKey(events);
+
+    const year = viewMonth.getFullYear();
+    const month = viewMonth.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const startOffset = firstOfMonth.getDay(); // 0=Sun
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const gridStart = new Date(year, month, 1 - startOffset);
+
+    const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+    const today = new Date();
+
+    let html = WEEKDAY_LABELS.map(w => `<div class="weekday-header">${w}</div>`).join('');
+
+    for (let i = 0; i < totalCells; i++) {
+      const cellDate = new Date(gridStart);
+      cellDate.setDate(gridStart.getDate() + i);
+      const isOutside = cellDate.getMonth() !== month;
+      const isToday = cellDate.toDateString() === today.toDateString();
+      const dayEvents = (byDate.get(cellDate.toDateString()) || []).sort((a, b) => new Date(a.start) - new Date(b.start));
+
+      const visibleChips = dayEvents.slice(0, 3);
+      const overflowCount = dayEvents.length - visibleChips.length;
+
+      const chipsHtml = visibleChips.map(ev =>
+        `<div class="day-chip" title="${escapeHtml(ev.client + ' — ' + ev.meetingType + ': ' + ev.title)}"><strong>${escapeHtml(ev.meetingType)}</strong> ${escapeHtml(ev.client)}</div>`
+      ).join('') + (overflowCount > 0 ? `<div class="day-chip-more">+${overflowCount} more</div>` : '');
+
+      html += `
+        <div class="day-cell${isOutside ? ' outside-month' : ''}${isToday ? ' is-today' : ''}"
+             data-date="${cellDate.toISOString()}"
+             ${dayEvents.length ? 'data-has-events="1"' : ''}>
+          <div class="day-number">${cellDate.getDate()}</div>
+          ${chipsHtml}
+        </div>
+      `;
+    }
+
+    contentEl.innerHTML = `<div class="calendar-grid">${html}</div>`;
+
+    contentEl.querySelectorAll('.day-cell[data-has-events]').forEach(cell => {
+      cell.style.cursor = 'pointer';
+      cell.addEventListener('click', () => {
+        const dateObj = new Date(cell.dataset.date);
+        const dayEvents = byDate.get(dateObj.toDateString()) || [];
+        showDayPopover(cell, dateObj, dayEvents);
+      });
+    });
+  }
+
+  document.getElementById('prevMonthBtn').addEventListener('click', () => {
+    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1);
+    renderCalendarGrid();
+  });
+  document.getElementById('nextMonthBtn').addEventListener('click', () => {
+    viewMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1);
+    renderCalendarGrid();
+  });
+  document.getElementById('todayBtn').addEventListener('click', () => {
+    viewMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    renderCalendarGrid();
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.day-popover') && !e.target.closest('.day-cell')) closePopover();
+  });
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str || '';
+    return div.innerHTML;
+  }
+
+  async function fetchEvents() {
+    try {
+      const res = await fetch(FEED_URL + '?key=' + encodeURIComponent(ACCESS_KEY), { cache: 'no-store' });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      allEvents = data.events;
+      renderFilterBar();
+      renderCalendarGrid();
+      renderUpcoming(allEvents);
+      pulseDotEl.classList.remove('stale');
+      const t = new Date(data.generatedAt);
+      const errNote = (data.errors && data.errors.length) ? ` (${data.errors.length} calendar(s) failed)` : '';
+      syncTextEl.textContent = 'Synced ' + t.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) + errNote;
+      if (data.errors && data.errors.length) console.warn('Calendar sync issues:', data.errors);
+    } catch (err) {
+      pulseDotEl.classList.add('stale');
+      syncTextEl.textContent = 'Sync failed';
+      if (contentEl.querySelector('.empty-state')) {
+        contentEl.innerHTML = `<div class="error-state">Couldn't load the calendar feed. Check the Web App URL and deployment access.</div>`;
+      }
+      console.error(err);
+    }
+  }
+
+  fetchEvents();
+  setInterval(fetchEvents, REFRESH_MS);
+</script>
+</body>
+</html>
