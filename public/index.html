@@ -376,13 +376,8 @@
     opacity: 0.4;
   }
 
-  .upcoming-row.claimed {
-    opacity: 0.55;
-  }
-
   .claimant-tag {
     display: inline-block;
-    background: #0F9D58;
     color: #FFFFFF;
     font-family: 'Courier New', monospace;
     font-size: 11px;
@@ -391,6 +386,7 @@
     letter-spacing: 0.04em;
     padding: 2px 8px;
     flex-shrink: 0;
+    border: 2px solid var(--line);
   }
 
   .team-group {
@@ -417,6 +413,17 @@
     font-weight: 700;
     font-size: 13px;
     margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .person-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 1.5px solid var(--line);
+    flex-shrink: 0;
   }
 
   .person-lane-drop {
@@ -703,10 +710,11 @@
       else if (daysUntil === 1) urgencyClass = 'urgency-tomorrow';
       else if (daysUntil <= 7) urgencyClass = 'urgency-week';
 
-      const claimedClass = ev.claimedBy ? ' claimed' : '';
-      const claimedBadge = ev.claimedBy
-        ? `<span class="claimant-tag" title="Claimed by ${escapeHtml(ev.claimedBy)}">${escapeHtml(ev.claimedBy)}</span>`
-        : '';
+      const claimants = ev.claimants || [];
+      const claimedClass = claimants.length ? ' claimed' : '';
+      const claimedBadge = claimants
+        .map(c => `<span class="claimant-tag" style="background:${personColor(c.claimedBy)};" title="Claimed by ${escapeHtml(c.claimedBy)}">${escapeHtml(c.claimedBy)}</span>`)
+        .join('');
 
       return `
         <div class="upcoming-row ${urgencyClass}${claimedClass}" draggable="true" data-key="${escapeHtml(ev.key)}">
@@ -738,13 +746,27 @@
     'Paid Advertisement': ['Heather Brousell', 'Stephan Simmons'],
   };
 
+  // One fixed color per person — same color everywhere they show up
+  // (Coming Up badges, sidebar lane headers, claim cards).
+  const PERSON_COLORS = {
+    'Michael Falco': '#2453FF',
+    'Stacey Berlin': '#0F9D58',
+    'Emily Butman': '#E67E22',
+    'Heather Brousell': '#7C3AED',
+    'Stephan Simmons': '#E74C3C',
+  };
+  function personColor(name) {
+    return PERSON_COLORS[name] || '#6B6B63'; // muted gray fallback for anyone not in the map
+  }
+
   function renderInProcessBoard() {
     const teamsEl = document.getElementById('inProcessTeams');
     const claimedByName = {};
     allEvents.forEach(ev => {
-      if (ev.claimedBy) {
-        (claimedByName[ev.claimedBy] = claimedByName[ev.claimedBy] || []).push(ev);
-      }
+      (ev.claimants || []).forEach(c => {
+        if (!claimedByName[c.claimedBy]) claimedByName[c.claimedBy] = [];
+        claimedByName[c.claimedBy].push({ ev, claimedAt: c.claimedAt });
+      });
     });
 
     teamsEl.innerHTML = Object.entries(TEAM_ROSTER).map(([team, people]) => `
@@ -753,16 +775,16 @@
         ${people.map(person => {
           const items = (claimedByName[person] || []).sort((a, b) => new Date(a.claimedAt) - new Date(b.claimedAt));
           const cards = items.length
-            ? items.map(ev => `
-                <div class="claim-card" data-key="${escapeHtml(ev.key)}">
+            ? items.map(({ ev }) => `
+                <div class="claim-card" data-key="${escapeHtml(ev.key)}" style="border-left: 5px solid ${personColor(person)};">
                   <span class="claim-card-title" title="${escapeHtml(ev.client + ' — ' + ev.meetingType + ': ' + ev.title)}">${escapeHtml(ev.client)}: ${escapeHtml(ev.title)}</span>
-                  <div class="claim-release-btn" data-key="${escapeHtml(ev.key)}">✕</div>
+                  <div class="claim-release-btn" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(person)}">✕</div>
                 </div>
               `).join('')
             : '<div class="person-lane-empty">Nothing claimed</div>';
           return `
             <div class="person-lane">
-              <div class="person-lane-name">${escapeHtml(person)}</div>
+              <div class="person-lane-name"><span class="person-color-dot" style="background:${personColor(person)};"></span>${escapeHtml(person)}</div>
               <div class="person-lane-drop" data-person="${escapeHtml(person)}">${cards}</div>
             </div>
           `;
@@ -771,7 +793,7 @@
     `).join('');
 
     teamsEl.querySelectorAll('.claim-release-btn').forEach(btn => {
-      btn.addEventListener('click', () => releaseEvent(btn.dataset.key));
+      btn.addEventListener('click', () => releaseEvent(btn.dataset.key, btn.dataset.person));
     });
 
     teamsEl.querySelectorAll('.person-lane-drop').forEach(lane => {
@@ -793,9 +815,11 @@
     const ev = allEvents.find(e => e.key === key);
     if (!ev || !person) return;
 
+    ev.claimants = ev.claimants || [];
+    if (ev.claimants.some(c => c.claimedBy === person)) return; // already claimed by this person — nothing to do
+
     // Optimistic update so the UI feels instant
-    ev.claimedBy = person;
-    ev.claimedAt = new Date().toISOString();
+    ev.claimants.push({ claimedBy: person, claimedAt: new Date().toISOString() });
     renderUpcoming(allEvents);
     renderCalendarGrid();
     renderInProcessBoard();
@@ -814,12 +838,11 @@
     }
   }
 
-  async function releaseEvent(key) {
+  async function releaseEvent(key, person) {
     const ev = allEvents.find(e => e.key === key);
-    if (!ev) return;
+    if (!ev || !person) return;
 
-    ev.claimedBy = '';
-    ev.claimedAt = '';
+    ev.claimants = (ev.claimants || []).filter(c => c.claimedBy !== person);
     renderUpcoming(allEvents);
     renderCalendarGrid();
     renderInProcessBoard();
@@ -828,7 +851,7 @@
       await fetch(FEED_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'release', key: key }),
+        body: JSON.stringify({ action: 'release', key: key, name: person }),
       });
     } catch (err) {
       console.error('Release failed to save:', err);
