@@ -23,12 +23,36 @@
     color: var(--ink);
     font-family: 'Helvetica Neue', Arial, sans-serif;
     min-height: 100vh;
+    overflow-x: hidden;
   }
 
   .wrap {
-    max-width: 880px;
+    max-width: 1180px;
     margin: 0 auto;
     padding: 28px 20px 80px;
+  }
+
+  .layout-grid {
+    display: flex;
+    align-items: flex-start;
+    gap: 28px;
+  }
+
+  .main-col {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .sidebar {
+    width: 300px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .layout-grid { flex-direction: column; }
+    .sidebar { width: 100%; position: static; }
   }
 
   header {
@@ -111,7 +135,7 @@
 
   .calendar-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     border: 2.5px solid var(--line);
     background: var(--line);
     gap: 2px;
@@ -132,10 +156,12 @@
   .day-cell {
     background: var(--card);
     min-height: 96px;
+    min-width: 0;
     padding: 6px;
     display: flex;
     flex-direction: column;
     gap: 3px;
+    overflow: hidden;
   }
 
   .day-cell.outside-month { background: #ECE9E1; }
@@ -157,6 +183,9 @@
   }
 
   .day-chip {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     font-size: 10.5px;
     line-height: 1.25;
     background: var(--ink);
@@ -243,6 +272,25 @@
     padding: 2px 8px;
   }
 
+  .am-tag {
+    display: inline-block;
+    background: #7C3AED;
+    color: #FFFFFF;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    margin-left: 6px;
+    text-decoration: none;
+    cursor: default;
+  }
+
+  a.am-tag { cursor: pointer; }
+  a.am-tag:hover { background: #5B21B6; }
+  }
+
   .upcoming-type {
     font-family: 'Courier New', monospace;
     font-size: 10.5px;
@@ -272,11 +320,21 @@
     padding: 6px 12px;
     cursor: pointer;
     user-select: none;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .filter-chip.active {
     background: var(--accent);
     color: var(--accent-ink);
+  }
+
+  .filter-bar-am .filter-chip.active {
+    background: #7C3AED;
+    color: #FFFFFF;
+    border-color: #7C3AED;
   }
 
   .empty-state, .error-state {
@@ -303,6 +361,123 @@
     padding-top: 22px;
   }
 
+  .upcoming-hint {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin: -6px 0 14px;
+  }
+
+  .upcoming-row[draggable="true"] {
+    cursor: grab;
+  }
+
+  .upcoming-row.dragging {
+    opacity: 0.4;
+  }
+
+  .upcoming-row.claimed {
+    opacity: 0.55;
+  }
+
+  .claimant-tag {
+    display: inline-block;
+    background: #0F9D58;
+    color: #FFFFFF;
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 8px;
+    flex-shrink: 0;
+  }
+
+  .team-group {
+    margin-bottom: 18px;
+  }
+
+  .team-label {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    border-bottom: 2px solid var(--line);
+    padding-bottom: 4px;
+    margin-bottom: 8px;
+  }
+
+  .person-lane {
+    margin-bottom: 10px;
+  }
+
+  .person-lane-name {
+    font-weight: 700;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+
+  .person-lane-drop {
+    min-height: 46px;
+    border: 2px dashed var(--line);
+    padding: 6px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .person-lane-drop.drag-over {
+    background: #EAF1FF;
+    border-color: var(--accent);
+    border-style: solid;
+  }
+
+  .person-lane-empty {
+    font-family: 'Courier New', monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+    padding: 6px 4px;
+  }
+
+  .claim-card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--card);
+    border: 2px solid var(--line);
+    box-shadow: 2px 2px 0 var(--line);
+    padding: 6px 8px;
+    margin-bottom: 6px;
+  }
+
+  .claim-card-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 700;
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .claim-release-btn {
+    font-family: 'Courier New', monospace;
+    font-weight: 700;
+    font-size: 13px;
+    line-height: 1;
+    border: 2px solid var(--line);
+    background: var(--card);
+    padding: 3px 7px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .claim-release-btn:hover {
+    background: #E74C3C;
+    color: #FFFFFF;
+    border-color: #E74C3C;
+  }
+
   .upcoming-heading {
     font-size: 20px;
     font-weight: 900;
@@ -313,13 +488,34 @@
 
   .upcoming-row {
     display: grid;
-    grid-template-columns: 96px 100px 1fr;
-    gap: 12px;
+    grid-template-columns: 120px 130px 1fr;
+    gap: 14px;
     align-items: center;
-    padding: 10px 14px;
+    padding: 12px 16px;
     background: var(--card);
     border: 2px solid var(--line);
+    border-left: 8px solid var(--muted);
     margin-bottom: 8px;
+  }
+
+  .upcoming-row.urgency-today {
+    border-left-color: #E74C3C;
+    background: #FDECEA;
+  }
+
+  .upcoming-row.urgency-tomorrow {
+    border-left-color: #FF8C42;
+    background: #FFF3E8;
+  }
+
+  .upcoming-row.urgency-week {
+    border-left-color: #F2B705;
+    background: #FFFAEA;
+  }
+
+  .upcoming-row.urgency-later {
+    border-left-color: var(--accent);
+    background: var(--card);
   }
 
   .upcoming-row:nth-child(1) { box-shadow: 4px 4px 0 var(--accent); border-color: var(--accent); }
@@ -327,15 +523,15 @@
   .upcoming-date {
     font-family: 'Courier New', monospace;
     font-weight: 700;
-    font-size: 12px;
+    font-size: 16px;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--ink);
   }
 
   .upcoming-time {
     font-family: 'Courier New', monospace;
     font-weight: 700;
-    font-size: 13px;
+    font-size: 17px;
   }
 
   .upcoming-info {
@@ -380,42 +576,54 @@
     </div>
   </header>
 
-  <div class="filter-bar" id="filterBar"></div>
+  <div class="layout-grid">
+    <div class="main-col">
+      <div class="filter-bar" id="filterBar"></div>
+      <div class="filter-bar filter-bar-am" id="amFilterBar"></div>
 
-  <div class="calendar-nav">
-    <div class="calendar-nav-title" id="calendarNavTitle"></div>
-    <div class="calendar-nav-buttons">
-      <div class="nav-btn" id="prevMonthBtn">‹ Prev</div>
-      <div class="nav-btn" id="todayBtn">Today</div>
-      <div class="nav-btn" id="nextMonthBtn">Next ›</div>
+      <div class="calendar-nav">
+        <div class="calendar-nav-title" id="calendarNavTitle"></div>
+        <div class="calendar-nav-buttons">
+          <div class="nav-btn" id="prevMonthBtn">‹ Prev</div>
+          <div class="nav-btn" id="todayBtn">Today</div>
+          <div class="nav-btn" id="nextMonthBtn">Next ›</div>
+        </div>
+      </div>
+
+      <div id="content">
+        <div class="empty-state">Loading events…</div>
+      </div>
+
+      <section class="upcoming-section">
+        <h2 class="upcoming-heading">Coming Up</h2>
+        <p class="upcoming-hint">Drag an item onto a name in "In Process" to claim it.</p>
+        <div id="upcomingList"></div>
+      </section>
     </div>
-  </div>
 
-  <div id="content">
-    <div class="empty-state">Loading events…</div>
+    <aside class="sidebar" id="inProcessSidebar">
+      <h2 class="upcoming-heading">In Process</h2>
+      <div id="inProcessTeams"></div>
+    </aside>
   </div>
-
-  <section class="upcoming-section">
-    <h2 class="upcoming-heading">Coming Up</h2>
-    <div id="upcomingList"></div>
-  </section>
 
   <footer>Auto-refreshes every 5 minutes · Source: shared team Google Calendar</footer>
 </div>
 
 <script>
   // Paste your Apps Script Web App deployment URL here.
-  const FEED_URL = 'https://script.google.com/a/macros/singlethrow.com/s/AKfycbyyE55CS_-LilQsft6vlS7mHwHcvYQNDt0sYM86xZcuqsMiXfkIfkp6DPY4SUgy3ks/exec';
-  const ACCESS_KEY = 'CHANGE-THIS-TO-A-RANDOM-STRING'; // must match ACCESS_KEY in the Apps Script
+  const FEED_URL = 'https://script.google.com/macros/s/AKfycbyXcstwtfB4PdjCyhDcBN4QIqftX5h5BOFzqSurucCan9Wekt-yzh1BpBm_XKbSIMDw/exec';
   const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
   const contentEl = document.getElementById('content');
   const syncTextEl = document.getElementById('syncText');
   const pulseDotEl = document.getElementById('pulseDot');
   const filterBarEl = document.getElementById('filterBar');
+  const amFilterBarEl = document.getElementById('amFilterBar');
 
   let allEvents = [];
   let activeClient = 'All';
+  let activeAM = 'All';
   let viewMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
 
   const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -436,16 +644,37 @@
     return map;
   }
 
+  function getFilteredEvents() {
+    return allEvents
+      .filter(ev => activeClient === 'All' || ev.client === activeClient)
+      .filter(ev => activeAM === 'All' || ev.am === activeAM);
+  }
+
   function renderFilterBar() {
     const clients = ['All', ...new Set(allEvents.map(ev => ev.client))].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
     filterBarEl.innerHTML = clients.map(c =>
-      `<div class="filter-chip${c === activeClient ? ' active' : ''}" data-client="${escapeHtml(c)}">${escapeHtml(c)}</div>`
+      `<div class="filter-chip${c === activeClient ? ' active' : ''}" data-client="${escapeHtml(c)}" title="${escapeHtml(c)}">${escapeHtml(c)}</div>`
     ).join('');
 
     filterBarEl.querySelectorAll('.filter-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         activeClient = chip.dataset.client;
         renderFilterBar();
+        renderCalendarGrid();
+      });
+    });
+  }
+
+  function renderAMFilterBar() {
+    const ams = ['All', ...new Set(allEvents.map(ev => ev.am))].sort((a, b) => a === 'All' ? -1 : a.localeCompare(b));
+    amFilterBarEl.innerHTML = ams.map(a =>
+      `<div class="filter-chip${a === activeAM ? ' active' : ''}" data-am="${escapeHtml(a)}" title="AM: ${escapeHtml(a)}">${escapeHtml(a)}</div>`
+    ).join('');
+
+    amFilterBarEl.querySelectorAll('.filter-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        activeAM = chip.dataset.am;
+        renderAMFilterBar();
         renderCalendarGrid();
       });
     });
@@ -468,18 +697,142 @@
     upcomingEl.innerHTML = upcoming.map(ev => {
       const d = new Date(ev.start);
       const dateStr = d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      const daysUntil = Math.floor((new Date(d.toDateString()) - new Date(now.toDateString())) / 86400000);
+      let urgencyClass = 'urgency-later';
+      if (daysUntil <= 0) urgencyClass = 'urgency-today';
+      else if (daysUntil === 1) urgencyClass = 'urgency-tomorrow';
+      else if (daysUntil <= 7) urgencyClass = 'urgency-week';
+
+      const claimedClass = ev.claimedBy ? ' claimed' : '';
+      const claimedBadge = ev.claimedBy
+        ? `<span class="claimant-tag" title="Claimed by ${escapeHtml(ev.claimedBy)}">${escapeHtml(ev.claimedBy)}</span>`
+        : '';
+
       return `
-        <div class="upcoming-row">
+        <div class="upcoming-row ${urgencyClass}${claimedClass}" draggable="true" data-key="${escapeHtml(ev.key)}">
           <div class="upcoming-date">${dateStr}</div>
           <div class="upcoming-time">${formatTime(ev.start, ev.allDay)}</div>
           <div class="upcoming-info">
             <span class="upcoming-client">${escapeHtml(ev.client)}</span>
             <span class="upcoming-type">${escapeHtml(ev.meetingType)}</span>
+            ${amTagHtml(ev, 'margin-left:0;')}
             <span class="upcoming-title">${escapeHtml(ev.title)}</span>
+            ${claimedBadge}
           </div>
         </div>
       `;
     }).join('');
+
+    upcomingEl.querySelectorAll('.upcoming-row[draggable="true"]').forEach(row => {
+      row.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', row.dataset.key);
+        e.dataTransfer.effectAllowed = 'move';
+        row.classList.add('dragging');
+      });
+      row.addEventListener('dragend', () => row.classList.remove('dragging'));
+    });
+  }
+
+  const TEAM_ROSTER = {
+    'SEO & Content': ['Michael Falco', 'Stacey Berlin', 'Emily Butman'],
+    'Paid Advertisement': ['Heather Brousell', 'Stephan Simmons'],
+  };
+
+  function renderInProcessBoard() {
+    const teamsEl = document.getElementById('inProcessTeams');
+    const claimedByName = {};
+    allEvents.forEach(ev => {
+      if (ev.claimedBy) {
+        (claimedByName[ev.claimedBy] = claimedByName[ev.claimedBy] || []).push(ev);
+      }
+    });
+
+    teamsEl.innerHTML = Object.entries(TEAM_ROSTER).map(([team, people]) => `
+      <div class="team-group">
+        <div class="team-label">${escapeHtml(team)}</div>
+        ${people.map(person => {
+          const items = (claimedByName[person] || []).sort((a, b) => new Date(a.claimedAt) - new Date(b.claimedAt));
+          const cards = items.length
+            ? items.map(ev => `
+                <div class="claim-card" data-key="${escapeHtml(ev.key)}">
+                  <span class="claim-card-title" title="${escapeHtml(ev.client + ' — ' + ev.meetingType + ': ' + ev.title)}">${escapeHtml(ev.client)}: ${escapeHtml(ev.title)}</span>
+                  <div class="claim-release-btn" data-key="${escapeHtml(ev.key)}">✕</div>
+                </div>
+              `).join('')
+            : '<div class="person-lane-empty">Nothing claimed</div>';
+          return `
+            <div class="person-lane">
+              <div class="person-lane-name">${escapeHtml(person)}</div>
+              <div class="person-lane-drop" data-person="${escapeHtml(person)}">${cards}</div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    `).join('');
+
+    teamsEl.querySelectorAll('.claim-release-btn').forEach(btn => {
+      btn.addEventListener('click', () => releaseEvent(btn.dataset.key));
+    });
+
+    teamsEl.querySelectorAll('.person-lane-drop').forEach(lane => {
+      lane.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        lane.classList.add('drag-over');
+      });
+      lane.addEventListener('dragleave', () => lane.classList.remove('drag-over'));
+      lane.addEventListener('drop', (e) => {
+        e.preventDefault();
+        lane.classList.remove('drag-over');
+        const key = e.dataTransfer.getData('text/plain');
+        if (key) claimEvent(key, lane.dataset.person);
+      });
+    });
+  }
+
+  async function claimEvent(key, person) {
+    const ev = allEvents.find(e => e.key === key);
+    if (!ev || !person) return;
+
+    // Optimistic update so the UI feels instant
+    ev.claimedBy = person;
+    ev.claimedAt = new Date().toISOString();
+    renderUpcoming(allEvents);
+    renderCalendarGrid();
+    renderInProcessBoard();
+
+    try {
+      await fetch(FEED_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight against Apps Script
+        body: JSON.stringify({
+          action: 'claim', key: ev.key, client: ev.client, meetingType: ev.meetingType,
+          title: ev.title, start: ev.start, name: person,
+        }),
+      });
+    } catch (err) {
+      console.error('Claim failed to save:', err);
+    }
+  }
+
+  async function releaseEvent(key) {
+    const ev = allEvents.find(e => e.key === key);
+    if (!ev) return;
+
+    ev.claimedBy = '';
+    ev.claimedAt = '';
+    renderUpcoming(allEvents);
+    renderCalendarGrid();
+    renderInProcessBoard();
+
+    try {
+      await fetch(FEED_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'release', key: key }),
+      });
+    } catch (err) {
+      console.error('Release failed to save:', err);
+    }
   }
 
   function closePopover() {
@@ -500,6 +853,7 @@
           <div class="day-popover-time">${formatTime(ev.start, ev.allDay)}</div>
           <span class="client-tag" style="margin-top:4px;">${escapeHtml(ev.client)}</span>
           <span class="meeting-type-tag">${escapeHtml(ev.meetingType)}</span>
+          ${amTagHtml(ev)}
           <div>${escapeHtml(ev.title)}</div>
         </div>
       `).join('')}
@@ -527,7 +881,7 @@
     closePopover();
     renderCalendarNavTitle();
 
-    const events = activeClient === 'All' ? allEvents : allEvents.filter(ev => ev.client === activeClient);
+    const events = getFilteredEvents();
     const byDate = groupByDateKey(events);
 
     const year = viewMonth.getFullYear();
@@ -553,7 +907,7 @@
       const overflowCount = dayEvents.length - visibleChips.length;
 
       const chipsHtml = visibleChips.map(ev =>
-        `<div class="day-chip" title="${escapeHtml(ev.client + ' — ' + ev.meetingType + ': ' + ev.title)}"><strong>${escapeHtml(ev.meetingType)}</strong> ${escapeHtml(ev.client)}</div>`
+        `<div class="day-chip" title="${escapeHtml(ev.client + ' — ' + ev.meetingType + ' — AM: ' + ev.am + ': ' + ev.title)}"><strong>${escapeHtml(ev.meetingType)}</strong> ${escapeHtml(ev.client)}</div>`
       ).join('') + (overflowCount > 0 ? `<div class="day-chip-more">+${overflowCount} more</div>` : '');
 
       html += `
@@ -600,16 +954,26 @@
     return div.innerHTML;
   }
 
+  function amTagHtml(ev, extraStyle) {
+    const style = extraStyle ? ` style="${extraStyle}"` : '';
+    if (ev.amEmail) {
+      return `<a class="am-tag" href="mailto:${escapeHtml(ev.amEmail)}" title="Email ${escapeHtml(ev.am)}"${style}>${escapeHtml(ev.am)}</a>`;
+    }
+    return `<span class="am-tag"${style}>${escapeHtml(ev.am)}</span>`;
+  }
+
   async function fetchEvents() {
     try {
-      const res = await fetch(FEED_URL + '?key=' + encodeURIComponent(ACCESS_KEY), { cache: 'no-store' });
+      const res = await fetch(FEED_URL, { cache: 'no-store' });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
 
       allEvents = data.events;
       renderFilterBar();
+      renderAMFilterBar();
       renderCalendarGrid();
       renderUpcoming(allEvents);
+      renderInProcessBoard();
       pulseDotEl.classList.remove('stale');
       const t = new Date(data.generatedAt);
       const errNote = (data.errors && data.errors.length) ? ` (${data.errors.length} calendar(s) failed)` : '';
