@@ -938,6 +938,29 @@
     return d.toISOString().slice(0, 10);
   }
 
+  /**
+   * Shared POST helper for claim/release/setDueDate. Throws with a real
+   * error message on failure instead of silently swallowing it — a save
+   * that never reached the server should be visible, not just a console log.
+   */
+  async function postAction_(payload) {
+    const res = await fetch(FEED_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight against Apps Script
+      body: JSON.stringify(payload),
+    });
+    let data;
+    try {
+      data = await res.json();
+    } catch (err) {
+      throw new Error('Server did not return valid JSON (HTTP ' + res.status + '). The deployed script may be out of date.');
+    }
+    if (!res.ok || data.error) {
+      throw new Error(data.error || ('Request failed (HTTP ' + res.status + ')'));
+    }
+    return data;
+  }
+
   async function claimEvent(key, person) {
     const ev = allEvents.find(e => e.key === key);
     if (!ev || !person) return;
@@ -952,16 +975,17 @@
     renderInProcessBoard();
 
     try {
-      await fetch(FEED_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // avoids CORS preflight against Apps Script
-        body: JSON.stringify({
-          action: 'claim', key: ev.key, client: ev.client, meetingType: ev.meetingType,
-          title: ev.title, start: ev.start, name: person,
-        }),
+      await postAction_({
+        action: 'claim', key: ev.key, client: ev.client, meetingType: ev.meetingType,
+        title: ev.title, start: ev.start, name: person,
       });
     } catch (err) {
       console.error('Claim failed to save:', err);
+      alert('Could not save this claim — it will revert. ' + err.message);
+      ev.claimants = ev.claimants.filter(c => c.claimedBy !== person); // revert the optimistic add
+      renderUpcoming(allEvents);
+      renderCalendarGrid();
+      renderInProcessBoard();
     }
   }
 
@@ -970,24 +994,27 @@
     if (!ev) return;
     const claimant = (ev.claimants || []).find(c => c.claimedBy === person);
     if (!claimant) return;
+    const previousDueDate = claimant.dueDate;
 
     claimant.dueDate = dueDate; // optimistic
-    renderInProcessBoard(); // due-date urgency coloring only affects the sidebar, no need to re-render the whole page
+    renderUpcoming(allEvents);
+    renderInProcessBoard();
 
     try {
-      await fetch(FEED_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'setDueDate', key: key, name: person, dueDate: dueDate }),
-      });
+      await postAction_({ action: 'setDueDate', key: key, name: person, dueDate: dueDate });
     } catch (err) {
       console.error('Due date failed to save:', err);
+      alert('Could not save this due date — it will revert. ' + err.message);
+      claimant.dueDate = previousDueDate; // revert the optimistic change
+      renderUpcoming(allEvents);
+      renderInProcessBoard();
     }
   }
 
   async function releaseEvent(key, person) {
     const ev = allEvents.find(e => e.key === key);
     if (!ev || !person) return;
+    const removed = (ev.claimants || []).find(c => c.claimedBy === person);
 
     ev.claimants = (ev.claimants || []).filter(c => c.claimedBy !== person);
     renderUpcoming(allEvents);
@@ -995,13 +1022,14 @@
     renderInProcessBoard();
 
     try {
-      await fetch(FEED_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'release', key: key, name: person }),
-      });
+      await postAction_({ action: 'release', key: key, name: person });
     } catch (err) {
       console.error('Release failed to save:', err);
+      alert('Could not remove this claim — it will come back. ' + err.message);
+      if (removed) ev.claimants.push(removed); // revert the optimistic removal
+      renderUpcoming(allEvents);
+      renderCalendarGrid();
+      renderInProcessBoard();
     }
   }
 
