@@ -448,13 +448,57 @@
 
   .claim-card {
     display: flex;
-    align-items: center;
-    gap: 6px;
+    flex-direction: column;
+    gap: 4px;
     background: var(--card);
     border: 2px solid var(--line);
     box-shadow: 2px 2px 0 var(--line);
     padding: 6px 8px;
     margin-bottom: 6px;
+  }
+
+  .claim-card-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .claim-card-due {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'Courier New', monospace;
+    font-size: 10.5px;
+  }
+
+  .claim-card-due-label {
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+
+  .due-date-input {
+    font-family: 'Courier New', monospace;
+    font-size: 10.5px;
+    border: 1.5px solid var(--line);
+    background: var(--paper);
+    padding: 1px 4px;
+    width: 118px;
+  }
+
+  .claim-card-due.due-overdue .claim-card-due-label,
+  .claim-card-due.due-overdue .due-date-input {
+    color: #E74C3C;
+    border-color: #E74C3C;
+    font-weight: 700;
+  }
+
+  .claim-card-due.due-soon .claim-card-due-label,
+  .claim-card-due.due-soon .due-date-input {
+    color: #B8860B;
+    border-color: #F2B705;
+    font-weight: 700;
   }
 
   .claim-card-title {
@@ -765,7 +809,7 @@
     allEvents.forEach(ev => {
       (ev.claimants || []).forEach(c => {
         if (!claimedByName[c.claimedBy]) claimedByName[c.claimedBy] = [];
-        claimedByName[c.claimedBy].push({ ev, claimedAt: c.claimedAt });
+        claimedByName[c.claimedBy].push({ ev, claimedAt: c.claimedAt, dueDate: c.dueDate || '' });
       });
     });
 
@@ -775,12 +819,21 @@
         ${people.map(person => {
           const items = (claimedByName[person] || []).sort((a, b) => new Date(a.claimedAt) - new Date(b.claimedAt));
           const cards = items.length
-            ? items.map(({ ev }) => `
+            ? items.map(({ ev, dueDate }) => {
+                const dueClass = dueDateClass_(dueDate);
+                return `
                 <div class="claim-card" data-key="${escapeHtml(ev.key)}" style="border-left: 5px solid ${personColor(person)};">
-                  <span class="claim-card-title" title="${escapeHtml(ev.client + ' — ' + ev.meetingType + ': ' + ev.title)}">${escapeHtml(ev.client)}: ${escapeHtml(ev.title)}</span>
-                  <div class="claim-release-btn" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(person)}">✕</div>
+                  <div class="claim-card-row">
+                    <span class="claim-card-title" title="${escapeHtml(ev.client + ' — ' + ev.meetingType + ': ' + ev.title)}">${escapeHtml(ev.client)}: ${escapeHtml(ev.title)}</span>
+                    <div class="claim-release-btn" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(person)}">✕</div>
+                  </div>
+                  <div class="claim-card-due ${dueClass}">
+                    <span class="claim-card-due-label">Due</span>
+                    <input type="date" class="due-date-input" value="${escapeHtml(dueDate || '')}" max="${maxDueDate_(ev.start)}" title="Must be at least 4 days before the meeting (${escapeHtml(new Date(ev.start).toLocaleDateString())})" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(person)}">
+                  </div>
                 </div>
-              `).join('')
+              `;
+              }).join('')
             : '<div class="person-lane-empty">Nothing claimed</div>';
           return `
             <div class="person-lane">
@@ -794,6 +847,17 @@
 
     teamsEl.querySelectorAll('.claim-release-btn').forEach(btn => {
       btn.addEventListener('click', () => releaseEvent(btn.dataset.key, btn.dataset.person));
+    });
+
+    teamsEl.querySelectorAll('.due-date-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const max = input.max;
+        if (input.value && max && input.value > max) {
+          alert('Due date must be at least 4 days before the meeting. Latest allowed: ' + max);
+          input.value = max;
+        }
+        setDueDate(input.dataset.key, input.dataset.person, input.value);
+      });
     });
 
     teamsEl.querySelectorAll('.person-lane-drop').forEach(lane => {
@@ -811,6 +875,24 @@
     });
   }
 
+  /** Returns an urgency class for a 'YYYY-MM-DD' due date string, or '' if unset. */
+  function dueDateClass_(dueDate) {
+    if (!dueDate) return '';
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const due = new Date(dueDate + 'T00:00:00');
+    const daysUntil = Math.round((due - today) / 86400000);
+    if (daysUntil < 0) return 'due-overdue';
+    if (daysUntil <= 1) return 'due-soon';
+    return 'due-ok';
+  }
+
+  /** Latest allowed due date for an event's date picker — 4 days before the meeting, as 'YYYY-MM-DD'. */
+  function maxDueDate_(meetingStart) {
+    const d = new Date(meetingStart);
+    d.setDate(d.getDate() - 4);
+    return d.toISOString().slice(0, 10);
+  }
+
   async function claimEvent(key, person) {
     const ev = allEvents.find(e => e.key === key);
     if (!ev || !person) return;
@@ -819,7 +901,7 @@
     if (ev.claimants.some(c => c.claimedBy === person)) return; // already claimed by this person — nothing to do
 
     // Optimistic update so the UI feels instant
-    ev.claimants.push({ claimedBy: person, claimedAt: new Date().toISOString() });
+    ev.claimants.push({ claimedBy: person, claimedAt: new Date().toISOString(), dueDate: '' });
     renderUpcoming(allEvents);
     renderCalendarGrid();
     renderInProcessBoard();
@@ -835,6 +917,26 @@
       });
     } catch (err) {
       console.error('Claim failed to save:', err);
+    }
+  }
+
+  async function setDueDate(key, person, dueDate) {
+    const ev = allEvents.find(e => e.key === key);
+    if (!ev) return;
+    const claimant = (ev.claimants || []).find(c => c.claimedBy === person);
+    if (!claimant) return;
+
+    claimant.dueDate = dueDate; // optimistic
+    renderInProcessBoard(); // due-date urgency coloring only affects the sidebar, no need to re-render the whole page
+
+    try {
+      await fetch(FEED_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'setDueDate', key: key, name: person, dueDate: dueDate }),
+      });
+    } catch (err) {
+      console.error('Due date failed to save:', err);
     }
   }
 
