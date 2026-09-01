@@ -389,27 +389,39 @@
     border: 2px solid var(--line);
   }
 
-  .due-badge {
-    display: inline-block;
+  .mini-claim-chip {
+    display: inline-flex;
+    align-items: stretch;
+    border: 2px solid var(--line);
+    box-shadow: 2px 2px 0 var(--line);
+    overflow: hidden;
+    vertical-align: middle;
+    margin: 2px 0;
+  }
+
+  .mini-claim-chip .claimant-tag {
+    border: none;
+    display: flex;
+    align-items: center;
+  }
+
+  .mini-due-panel {
+    display: flex;
+    align-items: center;
+    padding: 0 6px;
+    border-left: 2px solid var(--line);
+  }
+
+  .mini-due-input {
+    background: transparent;
+    border: none;
+    color: #FFFFFF;
+    color-scheme: dark; /* renders the native calendar icon light, so it's visible on the colored panel */
     font-family: 'Courier New', monospace;
     font-size: 10px;
     font-weight: 700;
-    padding: 1px 6px;
-    border: 2px solid var(--line);
-    background: var(--card);
-    color: var(--muted);
-    flex-shrink: 0;
-    margin-left: -4px; /* sits snug against its claimant-tag */
-  }
-
-  .due-badge.due-overdue {
-    color: #E74C3C;
-    border-color: #E74C3C;
-  }
-
-  .due-badge.due-soon {
-    color: #B8860B;
-    border-color: #F2B705;
+    width: 78px;
+    padding: 2px 0;
   }
 
   .team-group {
@@ -766,9 +778,7 @@
 
       const claimants = ev.claimants || [];
       const claimedClass = claimants.length ? ' claimed' : '';
-      const claimedBadge = claimants
-        .map(c => `<span class="claimant-tag" style="background:${personColor(c.claimedBy)};" title="Claimed by ${escapeHtml(c.claimedBy)}">${escapeHtml(c.claimedBy)}</span>${dueBadgeHtml_(c.dueDate)}`)
-        .join('');
+      const claimedBadge = claimants.map(c => claimantChipHtml_(ev, c)).join('');
 
       return `
         <div class="upcoming-row ${urgencyClass}${claimedClass}" draggable="true" data-key="${escapeHtml(ev.key)}">
@@ -793,6 +803,31 @@
       });
       row.addEventListener('dragend', () => row.classList.remove('dragging'));
     });
+
+    upcomingEl.querySelectorAll('.due-date-input').forEach(input => {
+      input.addEventListener('change', () => {
+        const max = input.max;
+        if (input.value && max && input.value > max) {
+          alert('Due date must be at least 4 days before the meeting. Latest allowed: ' + max);
+          input.value = max;
+        }
+        setDueDate(input.dataset.key, input.dataset.person, input.value);
+      });
+    });
+  }
+
+  /** Compact colored due-date chip for a single claimant — same component the sidebar claim cards use. */
+  function claimantChipHtml_(ev, c) {
+    const dueClass = dueDateClass_(c.dueDate);
+    const panelColor = dueClass === 'due-overdue' ? '#E74C3C' : dueClass === 'due-soon' ? '#B8860B' : personColor(c.claimedBy);
+    return `
+      <span class="mini-claim-chip">
+        <span class="claimant-tag" style="background:${personColor(c.claimedBy)};" title="Claimed by ${escapeHtml(c.claimedBy)}">${escapeHtml(c.claimedBy)}</span>
+        <span class="mini-due-panel" style="background:${panelColor};">
+          <input type="date" class="due-date-input mini-due-input" value="${escapeHtml(c.dueDate || '')}" max="${maxDueDate_(ev.start)}" title="Must be at least 4 days before the meeting (${escapeHtml(new Date(ev.start).toLocaleDateString())})" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(c.claimedBy)}">
+        </span>
+      </span>
+    `;
   }
 
   const TEAM_ROSTER = {
@@ -894,13 +929,6 @@
     if (daysUntil < 0) return 'due-overdue';
     if (daysUntil <= 1) return 'due-soon';
     return 'due-ok';
-  }
-
-  /** Compact "Due Aug 20" badge for a claimant, color-coded by urgency. Empty string if no due date set. */
-  function dueBadgeHtml_(dueDate) {
-    if (!dueDate) return '';
-    const label = new Date(dueDate + 'T00:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    return `<span class="due-badge ${dueDateClass_(dueDate)}">Due ${escapeHtml(label)}</span>`;
   }
 
   /** Latest allowed due date for an event's date picker — 4 days before the meeting, as 'YYYY-MM-DD'. */
