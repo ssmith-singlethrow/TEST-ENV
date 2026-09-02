@@ -797,6 +797,14 @@
 
     upcomingEl.querySelectorAll('.upcoming-row[draggable="true"]').forEach(row => {
       row.addEventListener('dragstart', (e) => {
+        // If the gesture started on the due-date picker (or any future interactive
+        // control) inside the row, let it behave as a normal click instead of
+        // hijacking it into a row-drag — otherwise clicking the date input can
+        // fail to open the picker or register a value change.
+        if (e.target.closest('input, select, textarea, a, button, .claim-release-btn')) {
+          e.preventDefault();
+          return;
+        }
         e.dataTransfer.setData('text/plain', row.dataset.key);
         e.dataTransfer.effectAllowed = 'move';
         row.classList.add('dragging');
@@ -824,7 +832,7 @@
       <span class="mini-claim-chip">
         <span class="claimant-tag" style="background:${personColor(c.claimedBy)};" title="Claimed by ${escapeHtml(c.claimedBy)}">${escapeHtml(c.claimedBy)}</span>
         <span class="mini-due-panel" style="background:${panelColor};">
-          <input type="date" class="due-date-input mini-due-input" value="${escapeHtml(c.dueDate || '')}" max="${maxDueDate_(ev.start)}" title="Must be at least 4 days before the meeting (${escapeHtml(new Date(ev.start).toLocaleDateString())})" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(c.claimedBy)}">
+          <input type="date" class="due-date-input mini-due-input" draggable="false" value="${escapeHtml(c.dueDate || '')}" max="${maxDueDate_(ev.start)}" title="Must be at least 4 days before the meeting (${escapeHtml(new Date(ev.start).toLocaleDateString())})" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(c.claimedBy)}">
         </span>
       </span>
     `;
