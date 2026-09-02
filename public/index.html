@@ -416,12 +416,15 @@
     background: transparent;
     border: none;
     color: #FFFFFF;
-    color-scheme: dark; /* renders the native calendar icon light, so it's visible on the colored panel */
     font-family: 'Courier New', monospace;
     font-size: 10px;
     font-weight: 700;
-    width: 78px;
+    width: 88px;
     padding: 2px 0;
+  }
+
+  .mini-due-input::placeholder {
+    color: rgba(255, 255, 255, 0.75);
   }
 
   .team-group {
@@ -493,7 +496,7 @@
 
   .claim-card-due-panel {
     flex-shrink: 0;
-    width: 78px;
+    width: 88px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -505,13 +508,16 @@
     background: transparent;
     border: none;
     color: #FFFFFF;
-    color-scheme: dark; /* renders the native calendar icon light, so it's visible on the colored panel */
     font-family: 'Courier New', monospace;
     font-size: 11px;
     font-weight: 700;
     width: 100%;
     text-align: center;
     padding: 0;
+  }
+
+  .claim-card-due-panel .due-date-input::placeholder {
+    color: rgba(255, 255, 255, 0.75);
   }
 
   .claim-card-body {
@@ -813,14 +819,7 @@
     });
 
     upcomingEl.querySelectorAll('.due-date-input').forEach(input => {
-      input.addEventListener('change', () => {
-        const max = input.max;
-        if (input.value && max && input.value > max) {
-          alert('Due date must be at least 4 days before the meeting. Latest allowed: ' + max);
-          input.value = max;
-        }
-        setDueDate(input.dataset.key, input.dataset.person, input.value);
-      });
+      wireDueDateTextInput_(input);
     });
   }
 
@@ -832,7 +831,7 @@
       <span class="mini-claim-chip">
         <span class="claimant-tag" style="background:${personColor(c.claimedBy)};" title="Claimed by ${escapeHtml(c.claimedBy)}">${escapeHtml(c.claimedBy)}</span>
         <span class="mini-due-panel" style="background:${panelColor};">
-          <input type="date" class="due-date-input mini-due-input" draggable="false" value="${escapeHtml(c.dueDate || '')}" max="${maxDueDate_(ev.start)}" title="Must be at least 4 days before the meeting (${escapeHtml(new Date(ev.start).toLocaleDateString())})" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(c.claimedBy)}">
+          <input type="text" inputmode="numeric" class="due-date-input mini-due-input" draggable="false" placeholder="M/D/YYYY" value="${escapeHtml(formatTypedDate_(c.dueDate))}" data-current="${escapeHtml(c.dueDate || '')}" data-max="${maxDueDate_(ev.start)}" title="Type as M/D/YYYY — must be at least 4 days before the meeting (${escapeHtml(new Date(ev.start).toLocaleDateString())})" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(c.claimedBy)}">
         </span>
       </span>
     `;
@@ -878,7 +877,7 @@
                 return `
                 <div class="claim-card" data-key="${escapeHtml(ev.key)}">
                   <div class="claim-card-due-panel ${dueClass}" style="background:${panelColor};">
-                    <input type="date" class="due-date-input" value="${escapeHtml(dueDate || '')}" max="${maxDueDate_(ev.start)}" title="Must be at least 4 days before the meeting (${escapeHtml(new Date(ev.start).toLocaleDateString())})" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(person)}">
+                    <input type="text" inputmode="numeric" class="due-date-input" placeholder="M/D/YYYY" value="${escapeHtml(formatTypedDate_(dueDate))}" data-current="${escapeHtml(dueDate || '')}" data-max="${maxDueDate_(ev.start)}" title="Type as M/D/YYYY — must be at least 4 days before the meeting (${escapeHtml(new Date(ev.start).toLocaleDateString())})" data-key="${escapeHtml(ev.key)}" data-person="${escapeHtml(person)}">
                   </div>
                   <div class="claim-card-body">
                     <span class="claim-card-title" title="${escapeHtml(ev.client + ' — ' + ev.meetingType + ': ' + ev.title)}">${escapeHtml(ev.client)}: ${escapeHtml(ev.title)}</span>
@@ -903,14 +902,7 @@
     });
 
     teamsEl.querySelectorAll('.due-date-input').forEach(input => {
-      input.addEventListener('change', () => {
-        const max = input.max;
-        if (input.value && max && input.value > max) {
-          alert('Due date must be at least 4 days before the meeting. Latest allowed: ' + max);
-          input.value = max;
-        }
-        setDueDate(input.dataset.key, input.dataset.person, input.value);
-      });
+      wireDueDateTextInput_(input);
     });
 
     teamsEl.querySelectorAll('.person-lane-drop').forEach(lane => {
@@ -944,6 +936,61 @@
     const d = new Date(meetingStart);
     d.setDate(d.getDate() - 4);
     return d.toISOString().slice(0, 10);
+  }
+
+  /** Parses a typed "M/D/YYYY" string into 'YYYY-MM-DD', or null if it's not a real calendar date. */
+  function parseTypedDate_(str) {
+    const m = (str || '').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    const month = parseInt(m[1], 10), day = parseInt(m[2], 10), year = parseInt(m[3], 10);
+    const d = new Date(year, month - 1, day);
+    // Catches invalid dates like 2/30/2026 — the Date constructor silently rolls those forward.
+    if (d.getFullYear() !== year || d.getMonth() !== month - 1 || d.getDate() !== day) return null;
+    return year + '-' + String(month).padStart(2, '0') + '-' + String(day).padStart(2, '0');
+  }
+
+  /** Formats a stored 'YYYY-MM-DD' value as 'M/D/YYYY' for display in the text input. Empty string if unset. */
+  function formatTypedDate_(isoDate) {
+    if (!isoDate) return '';
+    const [y, mo, da] = isoDate.split('-');
+    return parseInt(mo, 10) + '/' + parseInt(da, 10) + '/' + y;
+  }
+
+  /**
+   * Wires up a "M/D/YYYY" text due-date input: validates the typed value,
+   * enforces the 4-day-before-meeting cap, reverts on anything invalid,
+   * and only calls setDueDate once the value is confirmed good.
+   */
+  function wireDueDateTextInput_(input) {
+    input.addEventListener('change', () => {
+      const raw = input.value.trim();
+      const key = input.dataset.key, person = input.dataset.person, max = input.dataset.max;
+
+      if (!raw) {
+        input.value = '';
+        setDueDate(key, person, '');
+        return;
+      }
+
+      const iso = parseTypedDate_(raw);
+      if (!iso) {
+        alert('Enter the date as M/D/YYYY (e.g. 8/30/2026).');
+        input.value = formatTypedDate_(input.dataset.current || '');
+        return;
+      }
+
+      if (iso > max) {
+        alert('Due date must be at least 4 days before the meeting. Latest allowed: ' + formatTypedDate_(max));
+        input.value = formatTypedDate_(max);
+        input.dataset.current = max;
+        setDueDate(key, person, max);
+        return;
+      }
+
+      input.value = formatTypedDate_(iso); // normalize display (e.g. "08/9/2026" -> "8/9/2026")
+      input.dataset.current = iso;
+      setDueDate(key, person, iso);
+    });
   }
 
   /**
