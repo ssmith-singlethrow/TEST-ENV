@@ -640,6 +640,26 @@
     white-space: nowrap;
   }
 
+  .moved-badge {
+    display: inline-block;
+    background: #E74C3C;
+    color: #FFFFFF;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 2px 8px;
+    border: 2px solid var(--line);
+    animation: moved-pulse 1.6s infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes moved-pulse {
+    0% { box-shadow: 0 0 0 0 rgba(231,76,60,0.6); }
+    70% { box-shadow: 0 0 0 5px rgba(231,76,60,0); }
+    100% { box-shadow: 0 0 0 0 rgba(231,76,60,0); }
+  }
+
   @media (max-width: 520px) {
     .upcoming-row { grid-template-columns: 1fr; gap: 4px; }
   }
@@ -691,7 +711,7 @@
 
 <script>
   // Paste your Apps Script Web App deployment URL here.
-  const FEED_URL = 'https://script.google.com/macros/s/AKfycbxft3mUMPPh9W9argfMycHntK9TigISlW3Kh_pPJQdM12GzZFdGQ7aZjFEVE9AqtKH3/exec';
+  const FEED_URL = 'https://script.google.com/macros/s/AKfycbyP7rneA9fih-1DX0oFYAjL3q3A5mVsLyCPweW9_dM66-AeHDZoL7CsgW99Zc7eQfyG/exec';
   const REFRESH_MS = 5 * 60 * 1000; // 5 minutes
 
   const contentEl = document.getElementById('content');
@@ -785,6 +805,7 @@
       const claimants = ev.claimants || [];
       const claimedClass = claimants.length ? ' claimed' : '';
       const claimedBadge = claimants.map(c => claimantChipHtml_(ev, c)).join('');
+      const movedBadge = ev.moved ? movedBadgeHtml_(ev) : '';
 
       return `
         <div class="upcoming-row ${urgencyClass}${claimedClass}" draggable="true" data-key="${escapeHtml(ev.key)}">
@@ -795,6 +816,7 @@
             <span class="upcoming-type">${escapeHtml(ev.meetingType)}</span>
             ${amTagHtml(ev, 'margin-left:0;')}
             <span class="upcoming-title">${escapeHtml(ev.title)}</span>
+            ${movedBadge}
             ${claimedBadge}
           </div>
         </div>
@@ -1111,6 +1133,7 @@
           <span class="client-tag" style="margin-top:4px;">${escapeHtml(ev.client)}</span>
           <span class="meeting-type-tag">${escapeHtml(ev.meetingType)}</span>
           ${amTagHtml(ev)}
+          ${ev.moved ? movedBadgeHtml_(ev) : ''}
           <div>${escapeHtml(ev.title)}</div>
         </div>
       `).join('')}
@@ -1211,12 +1234,47 @@
     return div.innerHTML;
   }
 
+  function movedBadgeHtml_(ev) {
+    const oldStr = new Date(ev.previousStart).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    const newStr = new Date(ev.start).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+    return `<span class="moved-badge" title="Moved from ${escapeHtml(oldStr)} to ${escapeHtml(newStr)}">MOVED</span>`;
+  }
+
   function amTagHtml(ev, extraStyle) {
     const style = extraStyle ? ` style="${extraStyle}"` : '';
     if (ev.amEmail) {
       return `<a class="am-tag" href="mailto:${escapeHtml(ev.amEmail)}" title="Email ${escapeHtml(ev.am)}"${style}>${escapeHtml(ev.am)}</a>`;
     }
     return `<span class="am-tag"${style}>${escapeHtml(ev.am)}</span>`;
+  }
+
+  /**
+   * Alerts once per browser per distinct reschedule — a move is uniquely
+   * identified by (event id + movedDetectedAt), so a second reschedule of
+   * the same meeting alerts again, but refreshing the page never re-alerts
+   * for one already seen.
+   */
+  function notifyOfMovedMeetings_(events) {
+    const seenKey = 'seenMovedMeetings';
+    let seen;
+    try {
+      seen = new Set(JSON.parse(localStorage.getItem(seenKey) || '[]'));
+    } catch (err) {
+      seen = new Set();
+    }
+
+    const newlyMoved = events.filter(ev => ev.moved && !seen.has(ev.id + '|' + ev.movedDetectedAt));
+    if (!newlyMoved.length) return;
+
+    const lines = newlyMoved.map(ev => {
+      const oldStr = new Date(ev.previousStart).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      const newStr = new Date(ev.start).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+      return `• ${ev.client}: ${ev.title} — moved from ${oldStr} to ${newStr}`;
+    });
+    alert('Meeting(s) rescheduled:\n\n' + lines.join('\n'));
+
+    newlyMoved.forEach(ev => seen.add(ev.id + '|' + ev.movedDetectedAt));
+    localStorage.setItem(seenKey, JSON.stringify(Array.from(seen)));
   }
 
   async function fetchEvents() {
@@ -1231,6 +1289,7 @@
       renderCalendarGrid();
       renderUpcoming(allEvents);
       renderInProcessBoard();
+      notifyOfMovedMeetings_(allEvents);
       pulseDotEl.classList.remove('stale');
       const t = new Date(data.generatedAt);
       const errNote = (data.errors && data.errors.length) ? ` (${data.errors.length} calendar(s) failed)` : '';
